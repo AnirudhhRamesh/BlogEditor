@@ -2,6 +2,9 @@
 
 A CLI tool to easily transcribe, generate thumbnails and generate blog assets (title, description, blog, linkedin) for a given .m4a audio file.
 
+### Demo:
+https://github.com/user-attachments/assets/35e19e20-e7df-443e-995c-37b2b10227ed
+
 ## Problem Context
 
 This is the current workflow for creating a blog post (for my newsletter, [Ambitious x Driven](https://www.ambitiousxdriven.com)):
@@ -18,7 +21,7 @@ Thus, I decided to build a Python CLI tool leveraging the latest LLMs & prompt-e
 
 Here is a diagram that shows the processing pipeline for the blog writer.
 
-![axd_data_flow](./assets/axd_data_flow.png)
+![axd_data_flow](./assets/axd_pipeline.png)
 
 To generate the blog assets, you need to input an audio file, a PDF resume, and a photo of the guest.
 It then:
@@ -30,7 +33,7 @@ It then:
 
 [Design]
 Below is the system design for the blog writer.
-![axd_design](./assets/axd_design.png)
+![axd_design](./assets/system_design.png)
 
 - I created a separate File Helper class + FileHandlers that directly interact with the file system (as it's more convenient for a personal project + viewing the outputs).
 - I encapsulate each Blog 'component' into a separate schema and helper class ('Files', 'Metadata', 'Thumbnails', 'Blog').
@@ -93,7 +96,7 @@ CLI interface:
 ## Prompt-engineering details for generating a human-sounding 'true-to-transcript' blog
 
 - I probably will write a paper on this, so I'll share more details once that's prepared :)
-- In the meantime, I'm looking for labs/researchers to advise the paper-writing, if you're interested email me please: anirudhh.ramesh@gmail.com
+- In the meantime, I'm looking for labs/researchers to advise the paper-writing, if you're interested email me please: anirudhh.ramesh[AT]gmail.com
 
 ### Citations
 
