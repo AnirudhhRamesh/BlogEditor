@@ -98,4 +98,4 @@ In the CLI interface:
 
 ### Citations
 
-I use the [BiRefNet model](https://huggingface.co/ZhengPeng7/BiRefNet_demo) for image segmentation model from Hugging Face. This one seemed to work best out of the couple I tried.
+I use the [BiRefNet model](https://github.com/ZhengPeng7/BiRefNet) for image segmentation model from Hugging Face. This one seemed to work best out of the couple I tried.
