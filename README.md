@@ -38,7 +38,7 @@ Below is the system design for the blog writer.
 - I created a separate File Helper class + FileHandlers that directly interact with the file system (as it's more convenient for a personal project + viewing the outputs).
 - I encapsulate each Blog 'component' into a separate schema and helper class ('Files', 'Metadata', 'Thumbnails', 'Blog').
 
-In terms of timing, very simply:
+Here is how a typical file change happens (e.g. generating a title)
 
 1. User requests a file from the CLI (we are requesting files as there are multiple Zoom recordings in the folder)
 2. The BlogEditor class requests the file from the FileHelper
@@ -83,8 +83,6 @@ This will run & open the CLI interface. I recommend going into full-screen termi
 ## Features
 
 In the CLI interface:
-CLI interface:
-
 - list (see all the blogs found in your Zoom folder)
 - get <blog_name> (get the blog with the given name, this will be your 'working blog')
 - generate all (generate all the attributes for the blog)
@@ -100,4 +98,4 @@ CLI interface:
 
 ### Citations
 
-I use the Hugging Face Image Segmentation model, this one seemed to work best out of the couple I tried: []
+I use the [BiRefNet model](https://huggingface.co/ZhengPeng7/BiRefNet_demo) for image segmentation model from Hugging Face. This one seemed to work best out of the couple I tried.
