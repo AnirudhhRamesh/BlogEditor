@@ -52,33 +52,51 @@ class NotionService:
         Create a new page in Notion, in the specified database (at init)
         """
         photo_url = self.upload_image(blog.files.portrait)
-        banner_url = self.upload_image(blog.files.portrait.rsplit('portrait.jpeg', 1)[0] + 'content/landscape.png')
+        banner_url = self.upload_image(blog.files.portrait.rsplit('portrait.jpeg', 1)[0] + 'content/square.png')
 
         # Split content by Markdown headers
         parts = re.split(r'(^#{1,3}\s.*$)', blog.blog.content, flags=re.MULTILINE)
         
-        children = [
-            {
-                "object": "block",
-                "type": "image",
-                "image": {
-                    "type": "external",
-                    "external": {
-                        "url": banner_url
-                    }
-                }
-            },
-            {
-                "object": "block",
-                "type": "image",
-                "image": {
-                    "type": "external",
-                    "external": {
-                        "url": photo_url
-                    }
+        children = []
+
+        # Add the title as a h1 heading
+        children.append({
+            "object": "block",
+            "type": "heading_1",
+            "heading_1": {"rich_text": [{"type": "text", "text": {"content": blog.blog.title}}]}
+        })
+
+        # Add the description as a paragraph in grey italics
+        children.append({
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {"rich_text": [{"type": "text", "text": {"content": blog.blog.description, "link": None}}]}
+        })
+
+        # Add the banner
+        children.append({
+            "object": "block",
+            "type": "image",
+            "image": {
+                "type": "external",
+                "external": {
+                    "url": banner_url
                 }
             }
-        ]
+        })
+
+        # # Add the photo
+        # children.append({
+        #     "object": "block",
+        #     "type": "image",
+        #     "image": {
+        #         "type": "external",
+        #         "external": {
+        #             "url": photo_url
+        #         }
+        #     }
+        # })
+
         current_block = None
 
         for part in parts:

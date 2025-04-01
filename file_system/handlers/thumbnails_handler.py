@@ -26,7 +26,6 @@ class ThumbnailsHandler(HandlerInterface):
         if self.attr_has_changed("photo_no_bg", data, old_data):    
             # Save parameters and no_bg to generated folder
             self.file_repository.save_image(f"{file_name}/thumbnails/photo_no_bg.png", data.photo_no_bg)
-            self.file_repository.save_json(f"{file_name}/thumbnails/thumbnail_text.json", data.thumbnail_text.model_dump())
             self.file_repository.save_json(f"{file_name}/thumbnails/landscape_params.json", data.landscape_params.model_dump())
             self.file_repository.save_json(f"{file_name}/thumbnails/square_params.json", data.square_params.model_dump())
         

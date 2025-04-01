@@ -45,9 +45,10 @@ def main(stdscr):
         stdscr.clear()
         try:
             # Redraw header
-            stdscr.addstr(0, 0, welcome_text)
-            stdscr.addstr(1, 0, "Currently editing file: ")
-            stdscr.addstr(1, len("Currently editing file: "), current_file_name, curses.A_REVERSE)
+            stdscr.addstr(0, 0, welcome_text[:width-1])
+            header_text = "Currently editing file: "
+            stdscr.addstr(1, 0, header_text)
+            stdscr.addstr(1, len(header_text), current_file_name[:width-len(header_text)-1], curses.A_REVERSE)
             
             # Redraw content with up-to-date info
             if current_file_name != "No file set!":
@@ -55,9 +56,30 @@ def main(stdscr):
                 content_text = f"{current_file.__str__()}"
 
             content_y_pos = 3
-            for line in content_text.split('\n'):
-                if content_y_pos < height - 2:
-                    stdscr.addstr(content_y_pos, 0, line[:width-1])
+            for paragraph in content_text.split('\n'):
+                # Skip empty paragraphs but still add the spacing
+                if not paragraph.strip():
+                    content_y_pos += 1
+                    continue
+
+                was_wrapped = False
+                line = paragraph
+                while line and content_y_pos < height - 2:
+                    if len(line) > width - 1:
+                        wrap_point = line[:width-1].rfind(' ')
+                        if wrap_point == -1:  # No space found, force wrap at width
+                            wrap_point = width - 1
+                        
+                        stdscr.addstr(content_y_pos, 0, line[:wrap_point])
+                        line = line[wrap_point:].lstrip()
+                        was_wrapped = True
+                    else:
+                        stdscr.addstr(content_y_pos, 0, line)
+                        line = ''
+                    content_y_pos += 1
+                
+                # Add extra line break after wrapped paragraphs
+                if was_wrapped and content_y_pos < height - 2:
                     content_y_pos += 1
             
             # Divider
@@ -65,18 +87,43 @@ def main(stdscr):
                 stdscr.addstr(content_y_pos, 0, "-" * (width - 1))
                 content_y_pos += 1
 
-            # Redraw preview
+            # Redraw preview with text wrapping and paragraph spacing
             preview_y_pos = content_y_pos + 1
             preview_text = preview_lines[0].split('\n')
+            
+            wrapped_preview_lines = []
+            for paragraph in preview_text:
+                if not paragraph.strip():
+                    wrapped_preview_lines.append('')
+                    continue
+
+                line = paragraph
+                paragraph_lines = []
+                while line:
+                    if len(line) > width - 1:
+                        wrap_point = line[:width-1].rfind(' ')
+                        if wrap_point == -1:
+                            wrap_point = width - 1
+                        paragraph_lines.append(line[:wrap_point])
+                        line = line[wrap_point:].lstrip()
+                    else:
+                        paragraph_lines.append(line)
+                        line = ''
+                
+                # Add the paragraph lines
+                wrapped_preview_lines.extend(paragraph_lines)
+                # Add extra line break if the paragraph was wrapped
+                if len(paragraph_lines) > 1:
+                    wrapped_preview_lines.append('')
 
             for i in range(visible_preview_lines):
                 line_idx = i + preview_scroll
-                if line_idx < len(preview_text):
+                if line_idx < len(wrapped_preview_lines):
                     if preview_y_pos + i < height - 2:
-                        stdscr.addstr(preview_y_pos + i, 0, preview_text[line_idx][:width-1])
+                        stdscr.addstr(preview_y_pos + i, 0, wrapped_preview_lines[line_idx])
             
             # Redraw input line
-            stdscr.addstr(input_y, 0, "> " + input_buffer)
+            stdscr.addstr(input_y, 0, "> " + input_buffer[:width-3])  # Leave room for "> "
         except curses.error:
             pass
         stdscr.refresh()
@@ -96,9 +143,9 @@ def main(stdscr):
         
         # Get user input
         key = stdscr.getch()
-        if key == ord('q'):
-            break
-        elif key == curses.KEY_UP:
+        # if key == ord('q'):
+        #     break
+        if key == curses.KEY_UP:
             if preview_scroll > 0:
                 preview_scroll -= 1
         elif key == curses.KEY_DOWN:
@@ -216,7 +263,11 @@ def main(stdscr):
 
             input_buffer = ""
         elif 32 <= key <= 126:
-            input_buffer += chr(key)
+            try:
+                input_buffer += chr(key)
+            except Exception as e:
+                logging.error(f"Character input error: {str(e)}")
+
 
 if __name__ == '__main__':
     # Redirect stdout and stderr before starting curses
@@ -224,4 +275,12 @@ if __name__ == '__main__':
 
     # sys.stdout = open(os.devnull, 'w')
     # sys.stderr = open(os.devnull, 'w')
-    curses.wrapper(main)
+    error = "no error hmm?"
+    try:
+        curses.wrapper(main)
+    except Exception as e:
+        logging.error(f"Curses wrapper error: {str(e)}")
+        error = str(e)
+
+    print(f"Exiting... due to error: {error}")
+    

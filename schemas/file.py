@@ -24,6 +24,16 @@ class Resume(BaseModel):
     def __str__(self):
         return f"Resume: {self.name}\nStudies: {self.studies}\nExperiences: {self.experiences}\nLinkedIn URL: {self.linkedin_url}"
 
+class Word(BaseModel):
+    """
+    Schema for the word extracted from the transcription
+    """
+    text: str
+    start: int
+    end: int
+    confidence: float
+    speaker: str
+
 class Utterance(BaseModel):
     """
     AssemblyAI schema for the utterance extracted from the transcription
@@ -33,9 +43,11 @@ class Utterance(BaseModel):
     speaker: str
     start: int
     text: str
+    words: Optional[List[Word]] = None
 
     class Config:
         allow_extra = True
+        
 
     def __str__(self):
         return f"Utterance: {self.text}\nSpeaker: {self.speaker}\nConfidence: {self.confidence}\nStart: {self.start}\nEnd: {self.end}"
@@ -52,12 +64,22 @@ class Utterances(BaseModel):
 class Transcript(BaseModel):
     """
     Schema for the transcript (generated from the AssemblyAI transcription)
+    text is the transcript in markdown format
     """
     text: str
 
     def __str__(self):
         return self.text
-    
+
+class Guest(BaseModel):
+    """
+    Schema for the guest
+    """
+    first_name: str
+    top_companies: List[str]
+    top_universities: List[str]
+    origin: str
+
 class Metadata(BaseModel):
     """
     Metadata extracted from the files
@@ -65,6 +87,7 @@ class Metadata(BaseModel):
     resume: Optional[Resume]
     utterances: Optional[Utterances]
     transcript: Optional[Transcript]
+    guest: Optional[Guest]
 
 class ThumbnailParams(BaseModel):
     """
@@ -91,20 +114,10 @@ class ThumbnailParams(BaseModel):
     portrait_x_offset: int = 0
     portrait_y_offset: int = 0
 
-# Thumbnails assets
-class ThumbnailResume(BaseModel):
-    """
-    Schema for the thumbnail resume
-    """
-    first_name: str
-    companies: List[str]
-    universities: List[str]
-
 class Thumbnails(BaseModel):
     """
     Thumbnails generated from the metadata & files
     """
-    thumbnail_text: Optional[ThumbnailResume] = None
     photo_no_bg: Optional[bytes] = None
     landscape: Optional[bytes] = None
     landscape_params: Optional[ThumbnailParams] = None
@@ -159,3 +172,11 @@ Blog:
 - Content: {self.blog.content[:100].replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ') if self.blog.content else "Not generated"}
 - Linkedin: {self.blog.linkedin[:100].replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ') if self.blog.linkedin else "Not generated"}
         """
+
+# Misc
+class Prompt(BaseModel):
+    """
+    Schema for the prompts
+    """
+    text: str
+    model: str = "opus"

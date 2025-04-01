@@ -1,19 +1,19 @@
-import json
 import assemblyai as aai
-from schemas.file import Utterances, Utterance, Transcript
-
+from schemas.file import Utterances, Utterance, Transcript, Word
+from schemas.prompt import SimpleResponse
 
 class Transcriber:
     """
     Service class to transcribe audio files
     """
 
-    def __init__(self, config, llm):
+    def __init__(self, config, llm, prompts):
         """
         Initialize the Transcriber
         """
         aai.settings.api_key = config["ASSEMBLYAI_API_KEY"]
         self.llm = llm
+        self.prompts = prompts
 
     def transcribe(self, audio_file_path: str):
         """
@@ -27,6 +27,7 @@ class Transcriber:
             config=config
         )
         
+        print(transcript.utterances[0])
         # Map AssemblyAI transcript to our Transcript schema
         utterances = [
             Utterance(
@@ -34,7 +35,14 @@ class Transcriber:
                 end=utterance.end,
                 speaker=utterance.speaker,
                 start=utterance.start,
-                text=utterance.text
+                text=utterance.text,
+                words=[Word(
+                    text=word.text,
+                    start=word.start,
+                    end=word.end,
+                    confidence=word.confidence,
+                    speaker=word.speaker
+                ) for word in utterance.words]
             )
             for utterance in transcript.utterances
         ]
@@ -50,52 +58,25 @@ class Transcriber:
 
         # Analyze the transcript using LLM 'haiku'
         # Use CoT reasoning in the prompt even and then Pydantic validation for a more sophisticated prompt?
-
-        prompt = f"""Your task is to identify the guest speaker in a conversation transcript between a guest and a host, and return their label. The conversation is between two people, A and B.
-
-        Generally, the host asks questions about the guest's background, story, experiences.
-
-        Generally, the guest answers the host's questions, and responds with their background, story, experiences.
-
-        Identify and return the speaker label. Return 'A' if the guest is the first to speak. Otherwise, return 'B'.
-
-        Return in json format with the key 'guest' and the value 'A' or 'B'.
-
-        Here is an example transcript:
-        <transcript>
-            A: Recording. Okay. Yeah. Again, it's like a chat. I'll share the blog with you first, and you can review everything before anything's published. So you have full control.
-            B: The goal is not to publish the recording. Right. It's just like you to make an article or a post out of it.
-            A: Exactly. Fully private. It's just to make it trans up to make the blog.
-            B: Yeah, sounds good. As long as you show me the post before the blog, before posting, you're like, I'm done.
-            A: Yeah, absolutely. Yeah. Maybe we can start. We don't have too much time, but maybe we can just go ahead. Where did you grow up?
-            B: I grew up in the countryside of France, near mess, which is like 120,000 Abigail city, not far from Germany. It was very kind of like a small town, like 10,000 people. Yeah, that's where I grew up until I was 19.
-            A: And then you came to EPFL for Mikotech microengineering, right?
-        </transcript>
-
-        Here is the generated output:
-        <response>
-            {{"guest": "B"}}
-        </response>
-
-        Analyze the following transcript:
-        {transcript}
-        """
+        prompt = self.prompts.identify_speaker_prompt(transcript)
 
         # Identify the guest speaker
-        guest = self.llm.structured_prompt(prompt, model="sonnet")
+        guest = self.llm.prompt(prompt.text, model=prompt.model, schema=SimpleResponse)
 
-        if guest['guest'] not in ['A', 'B']:
-            guest['guest'] = 'B' #Fallback to B
+        if guest.response not in ['A', 'B']:
+            guest.response = 'B' #Fallback to B
 
-        guest_speaker = guest['guest']
+        guest_speaker = guest.response
 
         # Parse the transcript by labelling using the guest speaker
         annotated_transcript = ""
+        questions = ""
 
         for utterance in utterances.utterances:
             if utterance.speaker == guest_speaker:
                 annotated_transcript += f"{utterance.text} \n"
             else:
                 annotated_transcript += f"## {utterance.text} \n"
+                questions += f"## {utterance.text} \n \n"
 
         return Transcript(text=annotated_transcript)

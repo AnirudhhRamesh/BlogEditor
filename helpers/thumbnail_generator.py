@@ -1,7 +1,7 @@
 import io
 import time
 from typing import List
-from schemas.file import Blog, Thumbnails, ThumbnailParams, ThumbnailResume
+from schemas.file import File, Thumbnails, ThumbnailParams
 
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from pydantic import BaseModel
@@ -19,13 +19,13 @@ class ThumbnailGenerator:
         """
         pass
 
-    def generate_thumbnails(self, file: Blog):
+    def generate_thumbnails(self, file: File):
         """
         Generate the thumbnails for the given blog
         """
         photo_no_bg = self.remove_bg(file)
 
-        universities_text_height = int(self.calculate_text_height(file.thumbnails.thumbnail_text.universities, self.get_font("university", 74)))
+        universities_text_height = int(self.calculate_text_height(file.metadata.guest.top_universities, self.get_font("university", 74)))
 
         if file.thumbnails and file.thumbnails.landscape_params:
             landscape_params = file.thumbnails.landscape_params
@@ -36,9 +36,9 @@ class ThumbnailGenerator:
                 universities_x_offset=64, universities_y_offset=1200 - universities_text_height - 60, 
                 portrait_ratio=0.9, portrait_align="right"
             )
-        landscape = self.generate_thumbnail(file.thumbnails.thumbnail_text, photo_no_bg, landscape_params)
+        landscape = self.generate_thumbnail(file, photo_no_bg, landscape_params)
 
-        companies_text_height = int(self.calculate_text_height(file.thumbnails.thumbnail_text.companies, self.get_font("company", 99)))
+        companies_text_height = int(self.calculate_text_height(file.metadata.guest.top_companies, self.get_font("company", 99)))
         
         if file.thumbnails and file.thumbnails.square_params:
             square_params = file.thumbnails.square_params
@@ -49,10 +49,9 @@ class ThumbnailGenerator:
                 universities_x_offset=14, universities_y_offset=companies_text_height + 60,
                 portrait_ratio=0.8, portrait_align="center"
             )
-        square = self.generate_thumbnail(file.thumbnails.thumbnail_text, photo_no_bg, square_params)
+        square = self.generate_thumbnail(file, photo_no_bg, square_params)
 
         return Thumbnails(
-            thumbnail_text=file.thumbnails.thumbnail_text,
             photo_no_bg=self.image_to_bytes(photo_no_bg),
             landscape=self.image_to_bytes(landscape),
             square=self.image_to_bytes(square),
@@ -60,20 +59,20 @@ class ThumbnailGenerator:
             square_params=square_params
         )
         
-    def generate_thumbnail(self, thumbnail_resume: ThumbnailResume, guest_photo_no_bg: str, params: ThumbnailParams):
+    def generate_thumbnail(self, file: File, guest_photo_no_bg: str, params: ThumbnailParams):
         """
         Generate the thumbnail for the given blog, using the provided thumbnail parameters.
 
         Generates companies, universities, portrait and name overlays, then stitches it together.
         """
         # 1. Generate companies text overlay
-        companies_overlay, companies_mask = self.generate_companies_overlay(thumbnail_resume, params)
+        companies_overlay, companies_mask = self.generate_companies_overlay(file, params)
 
         # 2. Generate universities text overlay
-        universities_overlay, universities_mask = self.generate_universities_overlay(thumbnail_resume, params)
+        universities_overlay, universities_mask = self.generate_universities_overlay(file, params)
 
         # 3. Generate portrait with name overlay
-        portrait, portrait_gray, name_overlay_position = self.generate_portrait(thumbnail_resume, guest_photo_no_bg, params)
+        portrait, portrait_gray, name_overlay_position = self.generate_portrait(file, guest_photo_no_bg, params)
 
         # 4. Paste everything together and save
 
@@ -96,7 +95,7 @@ class ThumbnailGenerator:
         thumbnail.paste(portrait_gray, (paste_x, paste_y), portrait)
 
         # Name + Arrow
-        name_overlay = self.generate_name_overlay(thumbnail_resume, params)
+        name_overlay = self.generate_name_overlay(file, params)
         name_overlay_position = (name_overlay_position[0] + params.name_x_offset + paste_x, name_overlay_position[1] - params.name_y_offset + paste_y)
         thumbnail.paste(name_overlay, name_overlay_position, name_overlay)
 
@@ -104,7 +103,7 @@ class ThumbnailGenerator:
 
     # Thumbnail generation
     # 1. Generate companies text overlay
-    def generate_companies_overlay(self, thumbnail_resume: ThumbnailResume, params: ThumbnailParams):
+    def generate_companies_overlay(self, file: File, params: ThumbnailParams):
         """
         Generates the companies text overlay for the thumbnail
         """
@@ -125,7 +124,7 @@ class ThumbnailGenerator:
         
         # Draw the text in white on the text_mask
         spacing = font.size * 0.21
-        text_draw.text((0, 0), '\n'.join(thumbnail_resume.companies), font=font, fill=255, spacing=spacing)  # White text as a mask
+        text_draw.text((0, 0), '\n'.join(file.metadata.guest.top_companies), font=font, fill=255, spacing=spacing)  # White text as a mask
 
         # Now, composite the gradient with the text mask
         gradient_filled_text = Image.composite(gradient_mask, text_overlay, text_mask).convert('RGBA')
@@ -133,17 +132,17 @@ class ThumbnailGenerator:
         return gradient_filled_text, text_mask
     
     # 2. Generate universities text overlay
-    def generate_universities_overlay(self, thumbnail_resume: ThumbnailResume, params: ThumbnailParams, debug = False):
+    def generate_universities_overlay(self, file: File, params: ThumbnailParams, debug = False):
         """
         Generates the universities text overlay for the thumbnail
         """
-        uni_text = '\n'.join(thumbnail_resume.universities)
+        uni_text = '\n'.join(file.metadata.guest.top_universities)
 
         font = self.get_font("university", params.universities_font_size)
-        text_height = self.calculate_text_height(thumbnail_resume.universities, font)
+        text_height = self.calculate_text_height(file.metadata.guest.top_universities, font)
 
         # Calculate text width
-        text_width = max(font.getbbox(university)[2] - font.getbbox(university)[0] for university in thumbnail_resume.universities)
+        text_width = max(font.getbbox(university)[2] - font.getbbox(university)[0] for university in file.metadata.guest.top_universities)
 
         overlay_width = int(text_width)
         overlay_height = int(text_height)
@@ -163,7 +162,7 @@ class ThumbnailGenerator:
         return text_overlay, text_mask
 
     # 3. Generate portrait with name overlay
-    def generate_portrait(self, thumbnail_resume: ThumbnailResume, guest_photo_no_bg: str, params: ThumbnailParams):
+    def generate_portrait(self, file: File, guest_photo_no_bg: str, params: ThumbnailParams):
         """
         Generates the portrait for the thumbnail
         """
@@ -216,7 +215,7 @@ class ThumbnailGenerator:
             center_y = sum(y for _, y in top_right_transparent) // len(top_right_transparent)
                         
             # Create the name overlay
-            name_overlay = self.generate_name_overlay(thumbnail_resume, params)
+            name_overlay = self.generate_name_overlay(file, params)
             
             # Calculate the position to center the name_overlay on the transparent area
             overlay_x = center_x - name_overlay.width // 2 
@@ -235,14 +234,14 @@ class ThumbnailGenerator:
         return portrait, grayscale, name_overlay_position
     
     # 4. Generate name overlay
-    def generate_name_overlay(self, thumbnail_resume: ThumbnailResume, params: ThumbnailParams, debug = False):
+    def generate_name_overlay(self, file: File, params: ThumbnailParams, debug = False):
         """
         Generates the name overlay for the thumbnail
         """
         font = self.get_font("name", params.name_font_size)
         
         # Get the size of the text using getbbox()
-        bbox = font.getbbox(thumbnail_resume.first_name)
+        bbox = font.getbbox(file.metadata.guest.first_name)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
         
@@ -271,14 +270,14 @@ class ThumbnailGenerator:
 
         # Draw the text and paste the arrow
         fill = (0, 0, 0, 255) if debug else (255, 255, 255, 255)
-        draw.text((text_x, text_y), thumbnail_resume.first_name, font=font, fill=fill)
+        draw.text((text_x, text_y), file.metadata.guest.first_name, font=font, fill=fill)
         image.paste(arrow, (arrow_x, arrow_y), arrow)
 
         return image
 
     # === Helper functions ===
     # Background removal    
-    def remove_bg(self, file: Blog, debug=False):
+    def remove_bg(self, file: File, debug=False):
         """
         Remove the background from the given photo using a HuggingFace BG removal model.
         """
